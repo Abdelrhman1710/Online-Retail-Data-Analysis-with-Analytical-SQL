@@ -1,0 +1,332 @@
+SELECT * FROM "Online Retail";
+
+------------------------------
+--Here we have the months with the highest money
+SELECT 
+    DATE_TRUNC('month', "InvoiceDate") AS month, 
+    SUM("Quantity" * "UnitPrice") AS total_sales
+FROM "Online Retail"
+GROUP BY month
+ORDER BY SUM("Quantity" * "UnitPrice") DESC
+------------------------------
+--Here he brings the number of bills
+SELECT 
+    DATE_TRUNC('month', "InvoiceDate") AS month, 
+    COUNT(DISTINCT "InvoiceNo") AS total_invoices
+FROM "Online Retail"
+GROUP BY month
+ORDER by COUNT(DISTINCT "InvoiceNo") DESC
+___________________________________
+SELECT *
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9,10, 11, 12);
+
+----------
+--Here is the number of bills in the last 4 months of each year--
+SELECT COUNT(DISTINCT "InvoiceNo")
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9,10, 11, 12);
+-----------------
+--Number of people in the last 4 months
+SELECT COUNT(DISTINCT "CustomerID")
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9,10, 11, 12);
+---------------------------------
+--Some people have more than one bill
+SELECT 
+    "CustomerID",
+    COUNT(DISTINCT "InvoiceNo") AS total_invoices
+FROM "Online Retail"
+GROUP BY "CustomerID"
+HAVING COUNT(DISTINCT "InvoiceNo") > 1
+ORDER BY total_invoices DESC;
+
+SELECT *
+FROM "Online Retail"
+WHERE "CustomerID" = '14911';
+------------------
+--Here is the number of products sold in the last 3 months of each year.
+SELECT COUNT(DISTINCT"Description")
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9,10, 11, 12);
+
+-------------------------------
+
+SELECT COUNT("Description")
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9,10, 11, 12);
+----------
+--Number of pieces sold in the last 3 months of each year
+SELECT 
+    EXTRACT(YEAR FROM "InvoiceDate") AS year,
+    SUM("Quantity") AS total_quantity_sold
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9,10, 11, 12)
+GROUP BY year
+ORDER BY year;
+---------------------------------
+SELECT *
+FROM "Online Retail"
+WHERE EXTRACT(YEAR FROM "InvoiceDate") = 2016;
+----------------------------------------
+--Here is the name of the product and how many of them are sold. 
+--Most of them are birthday decorations and souvenirs.
+SELECT 
+    "Description",
+    SUM("Quantity") AS total_quantity_sold,
+    SUM(SUM("Quantity")) OVER () AS total_quantity_overall,
+    ROUND(SUM("Quantity")::DECIMAL / SUM(SUM("Quantity")) OVER () * 100, 2) AS percentage_of_total
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9,10, 11, 12)
+GROUP BY "Description"
+ORDER BY total_quantity_sold DESC;
+
+
+------------
+
+
+SELECT *
+FROM "Online Retail"
+WHERE "Description" = 'RABBIT NIGHT LIGHT'
+  AND EXTRACT(MONTH FROM "InvoiceDate") IN (9,10, 11, 12)
+ORDER BY "InvoiceDate";
+
+
+------------
+
+SELECT *
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9,10, 11, 12);
+----------------------
+--Products sold in each invoice
+WITH DuplicateInvoices AS (
+    SELECT 
+        "InvoiceNo"
+    FROM "Online Retail"
+    GROUP BY "InvoiceNo"
+    HAVING COUNT(*) > 1
+)
+SELECT 
+    "InvoiceNo",
+    "Description",
+    "Quantity"
+FROM "Online Retail"
+WHERE "InvoiceNo" IN (SELECT "InvoiceNo" FROM DuplicateInvoices)
+  AND EXTRACT(MONTH FROM "InvoiceDate") IN (9, 10, 11, 12)
+ORDER BY "InvoiceNo", "Description";
+
+----------------------------
+SELECT *
+FROM "Online Retail"
+WHERE "InvoiceNo" = '536365';
+
+
+
+----------------------------------------------------------
+--We will start looking at the customers
+------------------
+-------------------------------
+--Each country has its own invoice and product Numbers.
+SELECT 
+    "Country",
+    COUNT(DISTINCT "InvoiceNo") AS total_invoices,
+    SUM("Quantity") AS total_quantity_sold
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9, 10, 11, 12)
+GROUP BY "Country"
+ORDER BY total_invoices DESC;
+---------------------------------
+--Exchange rate of each customer
+SELECT 
+    "CustomerID", 
+    "Country",
+    SUM("Quantity") AS total_items_purchased,
+    SUM("Quantity" * "UnitPrice") AS total_spent, 
+    AVG("Quantity" * "UnitPrice") AS avg_spent_per_order 
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9, 10, 11, 12)
+GROUP BY "CustomerID", "Country"
+ORDER BY total_spent DESC; 
+
+
+-----------------------------------
+--The product was repeated in how many invoices
+--and how many times did we sell it?
+SELECT 
+    "Description",
+    COUNT(DISTINCT "InvoiceNo") AS num_invoices,
+    SUM("Quantity") AS total_quantity_sold
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9, 10, 11, 12)
+GROUP BY "Description"
+HAVING COUNT(DISTINCT "InvoiceNo") > 1
+ORDER BY total_quantity_sold DESC;
+--------------------------------
+--Average quantities per invoice
+SELECT 
+    "InvoiceNo",
+    SUM("Quantity") AS total_quantity,
+    AVG("Quantity") AS avg_quantity_per_invoice
+FROM "Online Retail"
+WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9, 10, 11, 12)
+GROUP BY "InvoiceNo"
+ORDER BY total_quantity DESC;
+-----------------------------
+--Most frequently used products together
+WITH FilteredData AS (
+    SELECT 
+        "InvoiceNo", 
+        "StockCode", 
+        "Description"
+    FROM "Online Retail"
+    WHERE EXTRACT(MONTH FROM "InvoiceDate") IN (9, 10, 11, 12)
+),
+ProductPairs AS (
+    SELECT 
+        f1."InvoiceNo",
+        f1."Description" AS product1,
+        f2."Description" AS product2
+    FROM FilteredData f1
+    JOIN FilteredData f2
+    ON f1."InvoiceNo" = f2."InvoiceNo" 
+    AND f1."Description" < f2."Description" 
+)
+SELECT 
+    product1, 
+    product2, 
+    COUNT(*) AS pair_count
+FROM ProductPairs
+GROUP BY product1, product2
+ORDER BY pair_count DESC
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+--We will start dividing customers into more than one category.
+
+WITH RFM_Calculation AS (
+    select
+        "CustomerID",
+        "Country",
+        extract(DAY FROM CURRENT_DATE - MAX("InvoiceDate")) AS Recency,
+        count(DISTINCT "InvoiceNo") AS Frequency,
+        sum("Quantity" * "UnitPrice") AS Monetary
+    from "Online Retail"
+    where "CustomerID" IS NOT NULL
+    group by "CustomerID", "Country"
+),
+
+RFM_Scores AS (
+    SELECT
+        "CustomerID",
+        "Country",
+        Recency,
+        Frequency,
+        Monetary,
+        CASE
+            WHEN Recency <= 1000 THEN 5
+            WHEN Recency <= 2000 THEN 4
+            WHEN Recency <= 3000 THEN 3
+            WHEN Recency <= 4000 THEN 2
+            ELSE 1
+        END AS RecencyScore,
+
+        CASE
+           WHEN Frequency >= 3000 THEN 5
+           WHEN Frequency >= 50 THEN 5
+	       WHEN Frequency >= 33 THEN 4
+	       WHEN Frequency >= 16 THEN 3
+           WHEN Frequency >= 3 THEN 2
+           ELSE 1
+        END AS FrequencyScore,
+
+        CASE
+           WHEN Monetary >= 2000000 THEN 5
+           WHEN Monetary >= 1000000 THEN 4
+           WHEN Monetary >= 500000 THEN 3
+           WHEN Monetary >= 100000 THEN 2
+           ELSE 1
+        END AS MonetaryScore
+
+        FROM RFM_Calculation
+)
+
+SELECT
+    "CustomerID",
+    "Country",
+    Recency,
+    Frequency,
+    Monetary,
+    RecencyScore,
+    FrequencyScore,
+    MonetaryScore,
+    CASE
+        WHEN RecencyScore = 5 AND ((FrequencyScore + MonetaryScore)/2.0=5) THEN 'Champions'
+		WHEN RecencyScore = 5 AND ((FrequencyScore + MonetaryScore)/2.0=4) THEN 'Champions'
+		WHEN RecencyScore = 4 AND ((FrequencyScore + MonetaryScore)/2.0=5) THEN 'Champions'
+		
+		WHEN RecencyScore = 5 AND ((FrequencyScore + MonetaryScore)/2.0=2) THEN 'Potential Loyalists'
+		WHEN RecencyScore = 4 AND ((FrequencyScore + MonetaryScore)/2.0=2) THEN 'Potential Loyalists'
+		WHEN RecencyScore = 3 AND ((FrequencyScore + MonetaryScore)/2.0=3) THEN 'Potential Loyalists'
+	    WHEN RecencyScore = 4 AND ((FrequencyScore + MonetaryScore)/2.0=3) THEN 'Potential Loyalists'
+
+
+
+		
+	    WHEN RecencyScore = 5 AND ((FrequencyScore + MonetaryScore)/2.0=3) THEN 'Loyal Customers'
+	    WHEN RecencyScore = 4 AND ((FrequencyScore + MonetaryScore)/2.0=4) THEN 'Loyal Customers'
+	    WHEN RecencyScore = 3 AND ((FrequencyScore + MonetaryScore)/2.0=5) THEN 'Loyal Customers'
+	    WHEN RecencyScore = 3 AND ((FrequencyScore + MonetaryScore)/2.0=4) THEN 'Loyal Customers'
+
+
+
+	    WHEN RecencyScore = 5 AND ((FrequencyScore + MonetaryScore)/2.0=1) THEN 'Recent Customers'
+
+
+
+	    WHEN RecencyScore = 4 AND ((FrequencyScore + MonetaryScore)/2.0=1) THEN 'Promising'
+	    WHEN RecencyScore = 3 AND ((FrequencyScore + MonetaryScore)/2.0=1) THEN 'Promising'
+
+
+	    WHEN RecencyScore = 3 AND ((FrequencyScore + MonetaryScore)/2.0=2) THEN 'Customers Needing Attention'
+	    WHEN RecencyScore = 2 AND ((FrequencyScore + MonetaryScore)/2.0=3) THEN 'Customers Needing Attention'
+	    WHEN RecencyScore = 2 AND ((FrequencyScore + MonetaryScore)/2.0=2) THEN 'Customers Needing Attention'
+		
+
+
+	    WHEN RecencyScore = 2 AND ((FrequencyScore + MonetaryScore)/2.0=5) THEN 'At Risk'
+	    WHEN RecencyScore = 2 AND ((FrequencyScore + MonetaryScore)/2.0=4) THEN 'At Risk'
+	    WHEN RecencyScore = 1 AND ((FrequencyScore + MonetaryScore)/2.0=3) THEN 'At Risk'
+
+
+	    WHEN RecencyScore = 1 AND ((FrequencyScore + MonetaryScore)/2.0=5) THEN 'Cant Lose Them'
+	    WHEN RecencyScore = 1 AND ((FrequencyScore + MonetaryScore)/2.0=4) THEN 'Cant Lose Them'
+
+
+	    WHEN RecencyScore = 1 AND ((FrequencyScore + MonetaryScore)/2.0=2) THEN 'Hibernating'
+
+
+        ELSE 'Lost'
+    END AS CustomerSegment
+FROM RFM_Scores
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
